@@ -6,6 +6,7 @@ const sticky=new Map();
 const HOLD_MS=1800;          // keep a detected object visible this long
 const INFER_MS=260;          // do not refresh the result too fast
 const MAX_OBJECTS=8;
+const OBJECT_COLORS=["#00e5ff","#ff4fd8","#ffd43b","#ff7043","#7cfc00","#b388ff","#00ffa3","#ff5c8a","#4dabf7","#f59f00"];
 const names={person:"คน",bicycle:"จักรยาน",car:"รถยนต์",motorcycle:"รถจักรยานยนต์",airplane:"เครื่องบิน",bus:"รถโดยสาร",train:"รถไฟ",truck:"รถบรรทุก",boat:"เรือ",bird:"นก",cat:"แมว",dog:"สุนัข",horse:"ม้า",sheep:"แกะ",cow:"วัว",elephant:"ช้าง",bear:"หมี",zebra:"ม้าลาย",giraffe:"ยีราฟ",backpack:"กระเป๋า",umbrella:"ร่ม",handbag:"กระเป๋าถือ",tie:"เนกไท",suitcase:"กระเป๋าเดินทาง",bottle:"ขวด",wine_glass:"แก้ว",cup:"ถ้วย",fork:"ส้อม",knife:"มีด",spoon:"ช้อน",bowl:"ชาม",banana:"กล้วย",apple:"แอปเปิล",sandwich:"แซนด์วิช",orange:"ส้ม",broccoli:"บรอกโคลี",carrot:"แครอต",chair:"เก้าอี้",couch:"โซฟา",potted_plant:"ต้นไม้",bed:"เตียง",dining_table:"โต๊ะ",toilet:"สุขภัณฑ์",tv:"ทีวี",laptop:"แล็ปท็อป",mouse:"เมาส์",remote:"รีโมต",keyboard:"คีย์บอร์ด",cell_phone:"โทรศัพท์",microwave:"ไมโครเวฟ",oven:"เตาอบ",toaster:"เครื่องปิ้งขนมปัง",sink:"อ่างล้างจาน",refrigerator:"ตู้เย็น",book:"หนังสือ",clock:"นาฬิกา",vase:"แจกัน",scissors:"กรรไกร",teddy_bear:"ตุ๊กตา",hair_drier:"ไดร์เป่าผม",toothbrush:"แปรงสีฟัน"};
 function setStatus(t){$("status").textContent=t}
 function fail(msg){setStatus("ERROR");$("cards").innerHTML=`<div class="empty">⚠️ ${msg}<br><small>iPhone: Settings → Safari → Camera → Allow แล้วโหลดหน้าใหม่</small></div>`;$("start").textContent="📷 TRY AGAIN"}
@@ -43,13 +44,59 @@ function matchTrack(p){
  if(best){const dt=(now-best.t)/1000,vx=dt>0?(cx-best.x)/dt:0,vy=dt>0?(cy-best.y)/dt:0;best.x=cx;best.y=cy;best.t=now;return{dir:Math.abs(vx)<18?"เกือบนิ่ง":vx>0?"ซ้าย → ขวา":"ขวา → ซ้าย"}}
  tracks.push({class:p.class,x:cx,y:cy,t:now});if(tracks.length>40)tracks.shift();return{dir:"กำลังตรวจ…"}
 }
+function objectColor(p){
+  if(p.objColor)return p.objColor;
+  const [x,y,w,h]=p.bbox;
+  // Stable visual identity based on tracker key / approximate position.
+  let key=p.key||`${p.class}_${Math.round((x+w/2)/60)}_${Math.round((y+h/2)/60)}`;
+  let hash=0;for(let i=0;i<key.length;i++)hash=((hash<<5)-hash)+key.charCodeAt(i)|0;
+  p.objColor=OBJECT_COLORS[Math.abs(hash)%OBJECT_COLORS.length];
+  return p.objColor;
+}
 function draw(preds){
- canvas.width=video.videoWidth;canvas.height=video.videoHeight;ctx.clearRect(0,0,canvas.width,canvas.height);
- preds.forEach(p=>{const[x,y,w,h]=p.bbox;ctx.strokeStyle="#69ff91";ctx.lineWidth=Math.max(3,canvas.width/320);ctx.strokeRect(x,y,w,h);ctx.fillStyle="#69ff91";ctx.font=`bold ${Math.max(15,canvas.width/44)}px monospace`;ctx.fillText(`🎯 ${names[p.class]||p.class} ${Math.round(p.score*100)}%`,x,Math.max(28,y-9))});
+  canvas.width=video.videoWidth;canvas.height=video.videoHeight;ctx.clearRect(0,0,canvas.width,canvas.height);
+  preds.forEach(p=>{
+    const[x,y,w,h]=p.bbox,c=objectColor(p);
+    ctx.strokeStyle=c;ctx.lineWidth=Math.max(3,canvas.width/320);ctx.strokeRect(x,y,w,h);
+    ctx.fillStyle=c;
+    const fs=Math.max(15,canvas.width/44);ctx.font=`bold ${fs}px monospace`;
+    const label=`${names[p.class]||p.class} ${Math.round(p.score*100)}%`;
+    const tw=ctx.measureText(label).width+16, th=fs+12, ly=Math.max(0,y-th);
+    ctx.fillRect(x,ly,tw,th);
+    ctx.fillStyle="#031006";ctx.fillText(label,x+8,ly+fs);
+  });
+}
+function renderFocus(p){
+  const panel=$("focusPanel");
+  if(!p){panel.style.display="none";return}
+  const c=objectColor(p),[x,y,w,h]=p.bbox, color=colorOf(x,y,w,h), move=p.mv?.dir||"กำลังตรวจ…";
+  panel.style.display="block";panel.style.borderColor=c;
+  panel.innerHTML=`<div class="focus-head" style="color:${c}"><span>🎯 ${names[p.class]||p.class}</span><span>${Math.round(p.score*100)}%</span></div>
+  <div class="focus-grid">
+   <div><span>สี</span><b>${color}</b></div>
+   <div><span>ระยะเชิงภาพ</span><b>${distHint(p.bbox)}</b></div>
+   <div><span>ทิศทาง</span><b>${move}</b></div>
+   <div><span>สถานะ</span><b>TRACKING</b></div>
+  </div>`;
 }
 function render(preds,moves){
- $("count").textContent=preds.length;if(!preds.length){$("cards").innerHTML='<div class="empty">กำลังค้นหาวัตถุ…<br>ขยับกล้องเล็กน้อยและให้วัตถุอยู่ในภาพ</div>';return}
- let html="";preds.slice(0,8).forEach((p,i)=>{const[x,y,w,h]=p.bbox,c=colorOf(x,y,w,h),m=moves[i];html+=`<div class="card"><div class="row"><span class="name">${names[p.class]||p.class}</span><span class="confidence">${Math.round(p.score*100)}%</span></div><div class="row"><span>สี</span><b>${c}</b></div><div class="row"><span>ระยะเชิงภาพ</span><b>${distHint(p.bbox)}</b></div><div class="row"><span>ทิศทาง</span><b>${m.dir}</b></div>${waterMode?`<div class="row"><span>💧 WATER</span><b>โหมดตรวจน้ำทำงาน</b></div>`:""}</div>`});$("cards").innerHTML=html;
+ $("count").textContent=preds.length;
+ if(!preds.length){
+   $("cards").innerHTML='<div class="empty">กำลังค้นหาวัตถุ…<br>ขยับกล้องเล็กน้อยและให้วัตถุอยู่ในภาพ</div>';
+   renderFocus(null);return;
+ }
+ let html='<div class="cards-grid">';
+ preds.slice(0,MAX_OBJECTS).forEach((p,i)=>{
+   const[x,y,w,h]=p.bbox,c=objectColor(p),color=colorOf(x,y,w,h),m=moves[i]||p.mv||{dir:"กำลังตรวจ…"};
+   html+=`<div class="object-card" style="--obj:${c}">
+    <div class="obj-head"><span class="obj-name">🎯 ${names[p.class]||p.class}</span><span class="obj-score">${Math.round(p.score*100)}%</span></div>
+    <div class="obj-row"><span>สี</span><b>${color}</b></div>
+    <div class="obj-row"><span>ระยะ</span><b>${distHint(p.bbox)}</b></div>
+    <div class="obj-row"><span>ทิศทาง</span><b>${m.dir}</b></div>
+   </div>`;
+ });
+ html+='</div>';$("cards").innerHTML=html;
+ renderFocus(preds[0]);
 }
 async function loop(){
  if(!running)return;if(video.readyState<2){requestAnimationFrame(loop);return}
@@ -69,7 +116,7 @@ async function loop(){
     }
     const key=bestKey || `${p.class}_${Math.round(cx/60)}_${Math.round(cy/60)}`;
     const mv=matchTrack(p);
-    sticky.set(key,{...p,cx,cy,mv,lastSeen:now2});
+    sticky.set(key,{...p,key,cx,cy,mv,lastSeen:now2,objColor:(sticky.get(key)?.objColor||objectColor({key,bbox:p.bbox,class:p.class}))});
   });
   for(const [k,s] of sticky){
     if(now2-s.lastSeen>HOLD_MS) sticky.delete(k);
