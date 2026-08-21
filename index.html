@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07110a"><link rel="manifest" href="manifest.json"><link rel="stylesheet" href="style.css">
+<title>SCOUTER AI INSPECTOR</title>
+</head>
+<body>
+<main class="app">
+<header><b>SCOUTER <span>AI INSPECTOR</span></b><small id="status">READY</small></header>
+<section class="viewer" id="viewer">
+<video id="video" autoplay muted playsinline></video><canvas id="canvas"></canvas>
+<div class="cross">＋</div><div class="live">● LIVE ANALYSIS</div>
+</section>
+<section class="result">
+<div class="title">DETECTED OBJECTS <b id="count">0</b></div>
+<div id="cards"><div class="empty">กด START แล้วหันกล้องไปที่วัตถุ<br>ระบบจะวิเคราะห์อัตโนมัติ</div></div>
+</section>
+<footer>
+<button id="start">▶ START</button><button id="flip">↔ CAMERA</button>
+<button id="voice">🔊 VOICE</button><button id="water">💧 WATER</button>
+</footer>
+<p class="note">AI ตรวจจับจากภาพกล้อง • สีเป็นการประมาณ • ระยะ/ขนาด/น้ำหนัก/ความเร็วจริงต้องมีข้อมูลอ้างอิงหรือเซ็นเซอร์ที่เหมาะสม</p>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+<script src="app.js"></script>
+</body></html>
