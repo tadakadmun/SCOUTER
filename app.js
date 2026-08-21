@@ -2,6 +2,10 @@ const $=id=>document.getElementById(id);
 const video=$("video"),canvas=$("canvas"),ctx=canvas.getContext("2d",{willReadFrequently:true});
 let model=null,stream=null,running=false,facing="environment",voiceOn=true,waterMode=false,loading=false,frameBusy=false,lastInference=0;
 let tracks=[];
+const sticky=new Map();
+const HOLD_MS=1800;          // keep a detected object visible this long
+const INFER_MS=260;          // do not refresh the result too fast
+const MAX_OBJECTS=8;
 const names={person:"คน",bicycle:"จักรยาน",car:"รถยนต์",motorcycle:"รถจักรยานยนต์",airplane:"เครื่องบิน",bus:"รถโดยสาร",train:"รถไฟ",truck:"รถบรรทุก",boat:"เรือ",bird:"นก",cat:"แมว",dog:"สุนัข",horse:"ม้า",sheep:"แกะ",cow:"วัว",elephant:"ช้าง",bear:"หมี",zebra:"ม้าลาย",giraffe:"ยีราฟ",backpack:"กระเป๋า",umbrella:"ร่ม",handbag:"กระเป๋าถือ",tie:"เนกไท",suitcase:"กระเป๋าเดินทาง",bottle:"ขวด",wine_glass:"แก้ว",cup:"ถ้วย",fork:"ส้อม",knife:"มีด",spoon:"ช้อน",bowl:"ชาม",banana:"กล้วย",apple:"แอปเปิล",sandwich:"แซนด์วิช",orange:"ส้ม",broccoli:"บรอกโคลี",carrot:"แครอต",chair:"เก้าอี้",couch:"โซฟา",potted_plant:"ต้นไม้",bed:"เตียง",dining_table:"โต๊ะ",toilet:"สุขภัณฑ์",tv:"ทีวี",laptop:"แล็ปท็อป",mouse:"เมาส์",remote:"รีโมต",keyboard:"คีย์บอร์ด",cell_phone:"โทรศัพท์",microwave:"ไมโครเวฟ",oven:"เตาอบ",toaster:"เครื่องปิ้งขนมปัง",sink:"อ่างล้างจาน",refrigerator:"ตู้เย็น",book:"หนังสือ",clock:"นาฬิกา",vase:"แจกัน",scissors:"กรรไกร",teddy_bear:"ตุ๊กตา",hair_drier:"ไดร์เป่าผม",toothbrush:"แปรงสีฟัน"};
 function setStatus(t){$("status").textContent=t}
 function fail(msg){setStatus("ERROR");$("cards").innerHTML=`<div class="empty">⚠️ ${msg}<br><small>iPhone: Settings → Safari → Camera → Allow แล้วโหลดหน้าใหม่</small></div>`;$("start").textContent="📷 TRY AGAIN"}
@@ -41,7 +45,7 @@ function matchTrack(p){
 }
 function draw(preds){
  canvas.width=video.videoWidth;canvas.height=video.videoHeight;ctx.clearRect(0,0,canvas.width,canvas.height);
- preds.forEach(p=>{const[x,y,w,h]=p.bbox;ctx.strokeStyle="#69ff91";ctx.lineWidth=Math.max(3,canvas.width/320);ctx.strokeRect(x,y,w,h);ctx.fillStyle="#69ff91";ctx.font=`bold ${Math.max(15,canvas.width/44)}px monospace`;ctx.fillText(`${names[p.class]||p.class} ${Math.round(p.score*100)}%`,x,Math.max(20,y-7))});
+ preds.forEach(p=>{const[x,y,w,h]=p.bbox;ctx.strokeStyle="#69ff91";ctx.lineWidth=Math.max(3,canvas.width/320);ctx.strokeRect(x,y,w,h);ctx.fillStyle="#69ff91";ctx.font=`bold ${Math.max(15,canvas.width/44)}px monospace`;ctx.fillText(`🎯 ${names[p.class]||p.class} ${Math.round(p.score*100)}%`,x,Math.max(28,y-9))});
 }
 function render(preds,moves){
  $("count").textContent=preds.length;if(!preds.length){$("cards").innerHTML='<div class="empty">กำลังค้นหาวัตถุ…<br>ขยับกล้องเล็กน้อยและให้วัตถุอยู่ในภาพ</div>';return}
@@ -49,9 +53,32 @@ function render(preds,moves){
 }
 async function loop(){
  if(!running)return;if(video.readyState<2){requestAnimationFrame(loop);return}
- const now=performance.now();if(frameBusy||now-lastInference<180){requestAnimationFrame(loop);return}
+ const now=performance.now();if(frameBusy||now-lastInference<INFER_MS){requestAnimationFrame(loop);return}
  frameBusy=true;lastInference=now;
- try{const preds=await model.detect(video,20,.35);const moves=preds.map(matchTrack);draw(preds);render(preds,moves);setStatus(`LIVE AI • ${preds.length} OBJECT${preds.length===1?"":"S"}`)}catch(e){console.error(e);setStatus("AI ERROR")}
+ try{
+  const raw=await model.detect(video,20,.28);
+  const now2=performance.now();
+  // Keep a target on screen briefly so the user can actually read it.
+  raw.slice(0,MAX_OBJECTS).forEach(p=>{
+    const [x,y,w,h]=p.bbox, cx=x+w/2, cy=y+h/2;
+    let bestKey=null,bestD=Infinity;
+    for(const [k,s] of sticky){
+      if(s.class!==p.class) continue;
+      const d=Math.hypot(cx-s.cx,cy-s.cy);
+      if(d<Math.max(w,h)*.9 && d<bestD){bestD=d;bestKey=k}
+    }
+    const key=bestKey || `${p.class}_${Math.round(cx/60)}_${Math.round(cy/60)}`;
+    const mv=matchTrack(p);
+    sticky.set(key,{...p,cx,cy,mv,lastSeen:now2});
+  });
+  for(const [k,s] of sticky){
+    if(now2-s.lastSeen>HOLD_MS) sticky.delete(k);
+  }
+  const preds=[...sticky.values()].sort((a,b)=>b.score-a.score).slice(0,MAX_OBJECTS);
+  draw(preds);
+  render(preds,preds.map(p=>p.mv||{dir:"กำลังตรวจ…"}));
+  setStatus(`LIVE AI • ${preds.length} OBJECT${preds.length===1?"":"S"}`);
+}catch(e){console.error(e);setStatus("AI ERROR")}
  frameBusy=false;requestAnimationFrame(loop)
 }
 $("start").onclick=()=>running?stop():openAI();
