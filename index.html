@@ -1,28 +1,90 @@
 <!doctype html>
 <html lang="th">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#07110a"><link rel="manifest" href="manifest.json"><link rel="stylesheet" href="style.css">
-<title>SCOUTER AI INSPECTOR</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#050806">
+<title>SCOUTER V2 — FREE</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <main class="app">
-<header><b>SCOUTER <span>AI INSPECTOR</span></b><small id="status">CAMERA READY</small></header>
-<section class="viewer" id="viewer">
-<video id="video" autoplay muted playsinline></video><canvas id="canvas"></canvas>
-<div class="cross">＋</div><div class="live">● LIVE ANALYSIS</div><div id="focusPanel" class="focus-panel"></div>
-</section>
-<section class="result">
-<div class="title">DETECTED OBJECTS <b id="count">0</b></div>
-<div id="cards"><div class="empty">กด OPEN AI เพียงครั้งเดียวเพื่ออนุญาตกล้อง<br>จากนั้นระบบจะวิเคราะห์ตลอดเวลาอัตโนมัติ</div></div>
-</section>
-<footer>
-<button id="start">📷 OPEN AI</button><button id="flip">↔ CAMERA</button>
-<button id="voice">🔊 VOICE</button><button id="water">💧 WATER</button>
-</footer>
-<p class="note">หลังอนุญาตกล้องแล้วไม่ต้องกด SCAN • AI ตรวจจับจากภาพกล้อง • สีเป็นการประมาณ • ระยะ/ขนาด/น้ำหนัก/ความเร็วจริงต้องมีข้อมูลอ้างอิงหรือเซ็นเซอร์ที่เหมาะสม</p>
+
+  <header class="topbar">
+    <div>
+      <div class="brand">SCOUTER <span>V2</span></div>
+      <div class="status"><i id="statusDot"></i> <span id="statusText">LOCAL AI • FREE</span></div>
+    </div>
+    <button id="flipBtn" class="iconBtn" title="สลับกล้อง">↻</button>
+  </header>
+
+  <section class="viewer">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="overlay"></canvas>
+    <div class="scanline"></div>
+    <div id="reticle" class="reticle"><span></span></div>
+    <div class="hud-corner tl"></div><div class="hud-corner tr"></div>
+    <div class="hud-corner bl"></div><div class="hud-corner br"></div>
+
+    <div id="message" class="message">กด START SCOUTER เพื่อเริ่มระบบ</div>
+
+    <div id="rainHud" class="rainHud hidden">
+      <div class="rainTitle"><span>RAIN MODE</span><b id="rainState">OFF</b></div>
+      <div class="meterRow"><label>VISION</label><div class="meter"><span id="visionBar"></span></div><b id="visionScore">0%</b></div>
+      <div class="meterRow"><label>ROAD</label><div class="meter"><span id="roadBar"></span></div><b id="roadScore">0%</b></div>
+      <div id="rainWarning" class="rainWarning">กด RAIN เพื่อเริ่มประเมินทัศนวิสัย</div>
+    </div>
+
+    <div id="roadGuide" class="roadGuide hidden">
+      <div id="guideArrow" class="guideArrow">↑</div>
+      <div id="guideState" class="guideState">SEARCHING</div>
+      <div id="guideText" class="guideText">กำลังหาแนวถนน</div>
+    </div>
+
+    <div id="targetInfo" class="targetInfo hidden">
+      <div class="ti-head"><b id="targetType">TARGET</b><span id="lockState">SEARCH</span></div>
+      <div class="ti-grid">
+        <div><label>POWER</label><strong id="power">0</strong></div>
+        <div><label>DIST</label><strong id="distance">--</strong></div>
+        <div><label>CONF</label><strong id="conf">0%</strong></div>
+        <div><label>DIR</label><strong id="direction">--</strong></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="readouts">
+      <div><label>TARGETS</label><strong id="targets">0</strong></div>
+      <div><label>POWER</label><strong id="powerMain">---</strong></div>
+      <div><label>DIST</label><strong id="distMain">---</strong></div>
+    </div>
+
+    <div class="buttons">
+      <button id="startBtn" class="primary">🔴 START SCOUTER</button>
+      <button id="scanBtn" disabled>⚡ SCAN</button>
+      <button id="lockBtn" disabled>🎯 LOCK TARGET</button>
+      <button id="voiceBtn" class="on" disabled>🔊 VOICE</button>
+    </div>
+    <div class="buttons secondary">
+      <button id="rainBtn" disabled>🌧️ RAIN MODE</button>
+      <button id="gpsBtn" disabled>🧭 GPS/HEADING</button>
+    </div>
+
+    <div id="targetList" class="targetList"></div>
+
+    <div id="navBar" class="nav-bar"><span>🧭 NAV ASSIST</span><b id="navText">รอเปิดระบบ</b></div>
+    <div id="riskBar" class="risk-bar">
+      <span>SAFETY</span><strong id="riskText">READY</strong>
+      <span id="gpsText">GPS: --</span><span id="headingText">HEADING: --</span>
+    </div>
+
+    <p class="note">ใช้ TensorFlow.js + COCO-SSD ประมวลผลในเบราว์เซอร์ทั้งหมด ไม่มี API แบบคิดเงิน • ค่า POWER/ระยะ/ROAD/VISION เป็นค่าประเมินเชิงภาพเพื่อการทดลองและความบันเทิง ไม่ใช่การวัดพลังหรือระยะจริง และไม่ใช่ระบบขับรถอัตโนมัติ — ผู้ขับต้องมองถนนและควบคุมรถเองเสมอ</p>
+  </section>
+
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
 <script src="app.js"></script>
-</body></html>
+</body>
+</html>
