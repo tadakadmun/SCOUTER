@@ -12,6 +12,13 @@ html,body{margin:0;padding:0;background:#050806;color:#d9ffe4;font-family:system
 .iconBtn{width:38px;height:38px;border-radius:9px;border:1px solid #356341;background:#0d1b11;color:#d8ffe3;font-size:18px}
 .iconBtn:active{background:#17351f;border-color:#6cff91}
 
+/* tab bar: two distinct modes, never mixed */
+.tabbar{display:grid;grid-template-columns:1fr 1fr;gap:0;flex:0 0 auto;border-bottom:1px solid #203b28}
+.tabBtn{border:none;border-radius:0;background:#0a140d;color:#8aa793;font:900 12px monospace;padding:12px 6px}
+.tabBtn.active{background:#0f2216;color:#69ff91;box-shadow:inset 0 -3px 0 #69ff91}
+.globalControls{padding:8px 14px 0;flex:0 0 auto}
+button.full{width:100%}
+
 /* viewer */
 .viewer{position:relative;background:#000;aspect-ratio:3/4;overflow:hidden;flex:0 0 auto}
 .viewer video,.viewer canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
@@ -33,14 +40,14 @@ html,body{margin:0;padding:0;background:#050806;color:#d9ffe4;font-family:system
 
 .hidden{display:none !important}
 
-/* rain HUD */
-.rainHud{position:absolute;z-index:6;top:10px;right:10px;width:180px;background:rgba(3,10,5,.92);backdrop-filter:blur(7px);border:1px solid #4f8b5d;border-radius:10px;padding:8px 10px}
-.rainTitle{font:900 11px monospace;display:flex;justify-content:space-between;color:#d8ffe3}
-.rainTitle span{color:#7dff9b}
-.meterRow{display:grid;grid-template-columns:44px 1fr 34px;align-items:center;gap:6px;margin-top:5px;font:800 10px monospace;color:#a5b7aa}
-.meter{height:6px;background:#1b2c20;border-radius:99px;overflow:hidden}
+/* meters (used inside the NAV ASSIST panel) */
+.meterRow{display:grid;grid-template-columns:52px 1fr 40px;align-items:center;gap:6px;margin-top:8px;font:800 11px monospace;color:#a5b7aa}
+.meterRow.big{font-size:13px}
+.meter{height:8px;background:#1b2c20;border-radius:99px;overflow:hidden}
+.meterRow.big .meter{height:12px}
 .meter span{display:block;height:100%;width:0;background:#69ff91;transition:width .25s}
-.rainWarning{font-size:10px;line-height:1.35;margin-top:6px;color:#b8c7bc}
+.rainWarning{font-size:11px;line-height:1.4;margin-top:6px;color:#b8c7bc}
+.rainWarning.big{font-size:13px;margin-top:10px;padding:8px;background:#0c180f;border:1px solid #294b32;border-radius:8px}
 
 /* road guide */
 .roadGuide{position:absolute;z-index:6;left:10px;bottom:10px;width:150px;padding:8px 10px;text-align:center;background:rgba(3,10,5,.90);backdrop-filter:blur(7px);border:1px solid #4f8b5d;border-radius:10px}
@@ -81,9 +88,21 @@ button.primary{background:#173324;border-color:#69ff91;color:#b9ffce}
 
 .nav-bar{margin:0 0 7px;padding:8px 10px;border:1px solid #294b32;border-radius:8px;background:#0b160e;display:flex;justify-content:space-between;gap:8px;font-size:11px}
 .nav-bar b{font-size:11px;color:#d8ffe3}
+.nav-bar.big{padding:12px 12px;font-size:14px;margin-top:10px}
+.nav-bar.big b{font-size:14px}
 .risk-bar{padding:7px 9px;border:1px solid #294b32;border-radius:8px;background:#0b160e;display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;align-items:center;font:800 10px monospace}
 .risk-bar strong{font-size:11px}
 .risk-bar span{color:#8fa496}
+.risk-bar.big{font-size:12px;padding:10px}
+.risk-bar.big strong{font-size:13px}
+
+/* ---- NAV ASSIST MODE: big glance-friendly HUD ---- */
+.safetyBanner{padding:10px 12px;border:1px solid #ffd43b;background:#191507;border-radius:10px;color:#ffe08a;font:800 12px/1.6 monospace;margin-bottom:10px}
+.navReadouts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:4px}
+.navStat{background:#0c180f;border:1px solid #294b32;border-radius:10px;padding:10px 6px;text-align:center}
+.navStat label{display:block;font-size:10px;color:#8aa793;letter-spacing:.5px}
+.navStat strong{font:900 24px monospace;color:#d8ffe3}
+#riskStatBig strong{font-size:16px}
 
 .note{margin:12px 0 0;color:#73867a;font-size:10px;line-height:1.6}
 

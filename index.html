@@ -19,6 +19,18 @@
     <button id="flipBtn" class="iconBtn" title="สลับกล้อง">↻</button>
   </header>
 
+  <!-- MODE TABS: two completely separate screens, on purpose.
+       SCOUTER MODE needs tapping (lock/scan/list) — never use while actually driving.
+       NAV ASSIST MODE is a glance-only driving HUD — big text, almost nothing to tap. -->
+  <nav class="tabbar">
+    <button id="tabScouterBtn" class="tabBtn active">🎯 SCOUTER MODE</button>
+    <button id="tabNavBtn" class="tabBtn">🚗 NAV ASSIST MODE</button>
+  </nav>
+
+  <div class="globalControls">
+    <button id="startBtn" class="primary full">🔴 START SCOUTER</button>
+  </div>
+
   <section class="viewer">
     <video id="video" autoplay playsinline muted></video>
     <canvas id="overlay"></canvas>
@@ -29,19 +41,7 @@
 
     <div id="message" class="message">กด START SCOUTER เพื่อเริ่มระบบ</div>
 
-    <div id="rainHud" class="rainHud hidden">
-      <div class="rainTitle"><span>RAIN MODE</span><b id="rainState">OFF</b></div>
-      <div class="meterRow"><label>VISION</label><div class="meter"><span id="visionBar"></span></div><b id="visionScore">0%</b></div>
-      <div class="meterRow"><label>ROAD</label><div class="meter"><span id="roadBar"></span></div><b id="roadScore">0%</b></div>
-      <div id="rainWarning" class="rainWarning">กด RAIN เพื่อเริ่มประเมินทัศนวิสัย</div>
-    </div>
-
-    <div id="roadGuide" class="roadGuide hidden">
-      <div id="guideArrow" class="guideArrow">↑</div>
-      <div id="guideState" class="guideState">SEARCHING</div>
-      <div id="guideText" class="guideText">กำลังหาแนวถนน</div>
-    </div>
-
+    <!-- SCOUTER MODE overlay -->
     <div id="targetInfo" class="targetInfo hidden">
       <div class="ti-head"><b id="targetType">TARGET</b><span id="lockState">SEARCH</span></div>
       <div class="ti-grid">
@@ -51,9 +51,17 @@
         <div><label>DIR</label><strong id="direction">--</strong></div>
       </div>
     </div>
+
+    <!-- NAV ASSIST MODE overlay -->
+    <div id="roadGuide" class="roadGuide hidden">
+      <div id="guideArrow" class="guideArrow">↑</div>
+      <div id="guideState" class="guideState">SEARCHING</div>
+      <div id="guideText" class="guideText">กำลังหาแนวถนน</div>
+    </div>
   </section>
 
-  <section class="panel">
+  <!-- ================= SCOUTER MODE PANEL ================= -->
+  <section id="scouterPanel" class="panel">
     <div class="readouts">
       <div><label>TARGETS</label><strong id="targets">0</strong></div>
       <div><label>POWER</label><strong id="powerMain">---</strong></div>
@@ -61,25 +69,47 @@
     </div>
 
     <div class="buttons">
-      <button id="startBtn" class="primary">🔴 START SCOUTER</button>
       <button id="scanBtn" disabled>⚡ SCAN</button>
       <button id="lockBtn" disabled>🎯 LOCK TARGET</button>
       <button id="voiceBtn" class="on" disabled>🔊 VOICE</button>
     </div>
-    <div class="buttons secondary">
-      <button id="rainBtn" disabled>🌧️ RAIN MODE</button>
-      <button id="gpsBtn" disabled>🧭 GPS/HEADING</button>
-    </div>
 
     <div id="targetList" class="targetList"></div>
 
-    <div id="navBar" class="nav-bar"><span>🧭 NAV ASSIST</span><b id="navText">รอเปิดระบบ</b></div>
-    <div id="riskBar" class="risk-bar">
+    <p class="note">ใช้ TensorFlow.js + COCO-SSD ประมวลผลในเบราว์เซอร์ทั้งหมด ไม่มี API แบบคิดเงิน • ค่า POWER/ระยะ เป็นค่าประเมินเชิงภาพเพื่อการทดลองและความบันเทิงเท่านั้น ไม่ใช่การวัดพลังหรือระยะจริง<br><strong>โหมดนี้ต้องแตะหน้าจอ (ล็อก/สแกน/เลือกเป้าหมาย) — ห้ามใช้ขณะขับรถ</strong></p>
+  </section>
+
+  <!-- ================= NAV ASSIST MODE PANEL ================= -->
+  <section id="navPanel" class="panel hidden">
+    <div class="safetyBanner">
+      ⚠️ ห้ามแตะหรือจ้องหน้าจอขณะขับ — ติดตั้งโทรศัพท์ให้มั่นคงก่อนออกรถ และมองถนนด้วยตาตนเองเสมอ<br>
+      ระบบนี้เป็นตัวช่วยประเมินทัศนวิสัย/แนวทางแบบคร่าวๆ เท่านั้น <strong>ไม่ใช่ระบบขับรถอัตโนมัติ</strong>
+    </div>
+
+    <div class="navReadouts">
+      <div class="navStat"><label>VISION</label><strong id="visionScoreBig">0%</strong></div>
+      <div class="navStat"><label>ROAD</label><strong id="roadScoreBig">0%</strong></div>
+      <div class="navStat" id="riskStatBig"><label>SAFETY</label><strong id="riskTextBig">READY</strong></div>
+    </div>
+
+    <div class="meterRow big"><label>VISION</label><div class="meter"><span id="visionBar"></span></div><b id="visionScore">0%</b></div>
+    <div class="meterRow big"><label>ROAD</label><div class="meter"><span id="roadBar"></span></div><b id="roadScore">0%</b></div>
+
+    <div id="navBar" class="nav-bar big"><span>🧭 NAV ASSIST</span><b id="navText">รอเปิดระบบ</b></div>
+    <div id="rainWarning" class="rainWarning big">กด RAIN MODE เพื่อเริ่มประเมินทัศนวิสัย</div>
+
+    <div class="buttons secondary">
+      <button id="rainBtn" disabled>🌧️ RAIN MODE</button>
+      <button id="gpsBtn" disabled>🧭 GPS/HEADING</button>
+      <button id="voiceBtnNav" class="on" disabled>🔊 VOICE</button>
+    </div>
+
+    <div id="riskBar" class="risk-bar big">
       <span>SAFETY</span><strong id="riskText">READY</strong>
       <span id="gpsText">GPS: --</span><span id="headingText">HEADING: --</span>
     </div>
 
-    <p class="note">ใช้ TensorFlow.js + COCO-SSD ประมวลผลในเบราว์เซอร์ทั้งหมด ไม่มี API แบบคิดเงิน • ค่า POWER/ระยะ/ROAD/VISION เป็นค่าประเมินเชิงภาพเพื่อการทดลองและความบันเทิง ไม่ใช่การวัดพลังหรือระยะจริง และไม่ใช่ระบบขับรถอัตโนมัติ — ผู้ขับต้องมองถนนและควบคุมรถเองเสมอ</p>
+    <p class="note">ROAD/VISION เป็นค่าประเมินเชิงภาพแบบสัมพัทธ์ ไม่ใช่การรับรองความปลอดภัยของถนน ฝนหนัก กลางคืน หรือน้ำเกาะเลนส์อาจทำให้ค่าคลาดเคลื่อนได้ ผู้ขับต้องควบคุมรถและตัดสินใจเองเสมอ</p>
   </section>
 
 </main>

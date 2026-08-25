@@ -14,15 +14,22 @@ const sctx = sample.getContext("2d", { willReadFrequently: true });
 
 const statusText = $("statusText"), message = $("message");
 const startBtn = $("startBtn"), scanBtn = $("scanBtn"), lockBtn = $("lockBtn"),
-      voiceBtn = $("voiceBtn"), rainBtn = $("rainBtn"), gpsBtn = $("gpsBtn"), flipBtn = $("flipBtn");
+      voiceBtn = $("voiceBtn"), voiceBtnNav = $("voiceBtnNav"),
+      rainBtn = $("rainBtn"), gpsBtn = $("gpsBtn"), flipBtn = $("flipBtn");
 const targetInfo = $("targetInfo"), targetType = $("targetType"), lockState = $("lockState"),
       powerEl = $("power"), distanceEl = $("distance"), confEl = $("conf"), directionEl = $("direction");
 const targetsEl = $("targets"), powerMainEl = $("powerMain"), distMainEl = $("distMain");
 const targetListEl = $("targetList");
 const navText = $("navText"), riskText = $("riskText"), gpsText = $("gpsText"), headingText = $("headingText");
-const rainHud = $("rainHud"), rainState = $("rainState"), visionBar = $("visionBar"), visionScore = $("visionScore"),
+const visionBar = $("visionBar"), visionScore = $("visionScore"),
       roadBar = $("roadBar"), roadScore = $("roadScore"), rainWarning = $("rainWarning");
 const roadGuide = $("roadGuide"), guideArrow = $("guideArrow"), guideState = $("guideState"), guideText = $("guideText");
+const visionScoreBig = $("visionScoreBig"), roadScoreBig = $("roadScoreBig"), riskTextBig = $("riskTextBig");
+
+// two separate screens on purpose — SCOUTER needs tapping, NAV ASSIST is glance-only
+const tabScouterBtn = $("tabScouterBtn"), tabNavBtn = $("tabNavBtn");
+const scouterPanel = $("scouterPanel"), navPanel = $("navPanel");
+let mode = "scouter"; // "scouter" | "nav"
 
 // ---- state ----
 let model = null, stream = null, running = false, loadingModel = false;
@@ -112,7 +119,7 @@ async function openScouter(){
     running = true;
     startBtn.textContent = "■ STOP SCOUTER";
     startBtn.classList.remove("primary");
-    [scanBtn, lockBtn, voiceBtn, rainBtn, gpsBtn].forEach(b => b.disabled = false);
+    [scanBtn, lockBtn, voiceBtn, voiceBtnNav, rainBtn, gpsBtn].forEach(b => b.disabled = false);
     setStatus("LIVE AI"); say("");
     requestAnimationFrame(loop);
   } catch (e) {
@@ -239,7 +246,7 @@ function draw(targets){
 }
 
 function renderTargetInfo(t){
-  if (!t) { targetInfo.classList.add("hidden"); return; }
+  if (!t || mode !== "scouter") { targetInfo.classList.add("hidden"); return; }
   targetInfo.classList.remove("hidden");
   targetType.textContent = `🎯 ${nameOf(t.class)}`;
   lockState.textContent = t.key === lockedKey ? "LOCKED" : "TRACKING";
@@ -325,14 +332,20 @@ function analyzeVision(targets){
 }
 
 function updateRainHud(targets){
-  rainHud.classList.toggle("hidden", !rainMode);
-  roadGuide.classList.toggle("hidden", !rainMode);
-  if (!rainMode) return { vision: 100, road: 100, state: "OFF" };
+  // road-guide arrow only ever shows in NAV mode, and only once RAIN MODE analysis is on
+  roadGuide.classList.toggle("hidden", !(rainMode && mode === "nav"));
+  if (!rainMode) {
+    visionScore.textContent = "0%"; visionBar.style.width = "0%";
+    roadScore.textContent = "0%"; roadBar.style.width = "0%";
+    visionScoreBig.textContent = "0%"; roadScoreBig.textContent = "0%";
+    rainWarning.textContent = "กด RAIN MODE เพื่อเริ่มประเมินทัศนวิสัย";
+    return { vision: 100, road: 100, state: "OFF" };
+  }
 
   const a = analyzeVision(targets);
-  rainState.textContent = "ON";
   visionScore.textContent = a.vision + "%"; visionBar.style.width = a.vision + "%";
   roadScore.textContent = a.road + "%"; roadBar.style.width = a.road + "%";
+  visionScoreBig.textContent = a.vision + "%"; roadScoreBig.textContent = a.road + "%";
   rainWarning.textContent = a.warning;
 
   if (a.vision < 25) { navText.textContent = "⚠️ ไม่ควรพึ่ง AI นำทาง"; speak("ทัศนวิสัยต่ำมาก กรุณาชะลอความเร็วและตรวจทางด้วยตนเอง"); }
@@ -378,8 +391,9 @@ function updateRisk(targets, vision, guideState){
   if (vision < 25 || guideState === "LOW VIS") { level = "red"; label = "⚠ VISION LOW"; }
   else if (near) { level = "yellow"; label = "⚠ OBJECT CLOSE"; }
   else if (vision < 45 || guideState === "UNCERTAIN") { level = "yellow"; label = "CAUTION"; }
-  riskText.textContent = label;
-  riskText.style.color = level === "red" ? "#ff5c5c" : level === "yellow" ? "#ffd43b" : "#69ff91";
+  const color = level === "red" ? "#ff5c5c" : level === "yellow" ? "#ffd43b" : "#69ff91";
+  riskText.textContent = label; riskText.style.color = color;
+  riskTextBig.textContent = label; riskTextBig.style.color = color;
   if (level !== lastRiskLevel && level !== "green") {
     if (level === "red") speak("แจ้งเตือน ทัศนวิสัยต่ำมาก");
     else if (label === "⚠ OBJECT CLOSE") speak("ระวัง มีวัตถุอยู่ใกล้");
@@ -438,6 +452,21 @@ async function loop(){
   requestAnimationFrame(loop);
 }
 
+// ---------- mode switching (SCOUTER MODE vs NAV ASSIST MODE — two separate screens) ----------
+function switchMode(next){
+  mode = next;
+  const isScouter = mode === "scouter";
+  tabScouterBtn.classList.toggle("active", isScouter);
+  tabNavBtn.classList.toggle("active", !isScouter);
+  scouterPanel.classList.toggle("hidden", !isScouter);
+  navPanel.classList.toggle("hidden", isScouter);
+  $("reticle").classList.toggle("hidden", !isScouter);
+  if (!isScouter) targetInfo.classList.add("hidden");
+  if (isScouter) roadGuide.classList.add("hidden");
+}
+tabScouterBtn.onclick = () => switchMode("scouter");
+tabNavBtn.onclick = () => switchMode("nav");
+
 // ---------- UI bindings ----------
 startBtn.onclick = () => running ? stopScouter() : openScouter();
 flipBtn.onclick = flipCamera;
@@ -465,12 +494,16 @@ lockBtn.onclick = () => {
   }
 };
 
-voiceBtn.onclick = () => {
+function toggleVoice(){
   voiceOn = !voiceOn;
-  voiceBtn.classList.toggle("on", voiceOn);
-  voiceBtn.textContent = voiceOn ? "🔊 VOICE" : "🔇 VOICE";
+  [voiceBtn, voiceBtnNav].forEach(b => {
+    b.classList.toggle("on", voiceOn);
+    b.textContent = voiceOn ? "🔊 VOICE" : "🔇 VOICE";
+  });
   if (!voiceOn) speechSynthesis.cancel();
-};
+}
+voiceBtn.onclick = toggleVoice;
+voiceBtnNav.onclick = toggleVoice;
 
 rainBtn.onclick = () => {
   rainMode = !rainMode;
@@ -487,4 +520,5 @@ gpsBtn.onclick = () => {
   navText.textContent = "GPS/เข็มทิศพร้อมเมื่ออุปกรณ์อนุญาต";
 };
 
+switchMode("scouter"); // initial state
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
