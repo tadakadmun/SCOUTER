@@ -54,7 +54,7 @@
     <button id="startBtn" class="go">เริ่มระบบช่วยเตือน</button>
     <div class="row">
       <button id="soundBtn">เสียงเตือน เปิด</button>
-      <button id="calibBtn">ตั้งค่ากล้อง</button>
+      <button id="calibBtn">ตั้งค่า</button>
     </div>
   </section>
 
@@ -69,7 +69,7 @@
 <!-- หน้าปรับตั้งกล้อง เปิดได้เฉพาะตอนจอด -->
 <div id="calibPanel" class="calib" hidden>
   <div class="calibInner">
-    <h2>ตั้งค่ากล้อง</h2>
+    <h2 class="sect">ตั้งค่ากล้อง</h2>
     <p>จอดรถในเลนตรง แล้วเลื่อนให้เส้นฟ้าทับขอบเลนซ้ายขวา เส้นประทับเส้นขอบฟ้า และเส้นเหลืองตรงกับกึ่งกลางฝากระโปรง ยิ่งตรงยิ่งวัดการเบี่ยงออกนอกเลนได้แม่น</p>
 
     <label>เส้นขอบฟ้า <output id="calv_horizonY"></output>
@@ -87,10 +87,26 @@
     <label>ความกว้างเลน (เมตร) <output id="calv_laneWidthM"></output>
       <input id="cal_laneWidthM" type="range" min="2.8" max="4.0" step="0.05"></label>
 
+    <h2 class="sect">ข้อมูลถนนและค่าเน็ต</h2>
+    <p class="hint">ข้อมูลถนนจาก OpenStreetMap ใช้ฟรีและไม่ต้องมีบัญชี แต่กินเน็ตมือถือซึ่งมีค่าใช้จ่าย
+      เส้นทางที่ขับซ้ำจะถูกเก็บไว้ในเครื่องและไม่โหลดอีก ปิดทิ้งไปเลยก็ได้ —
+      การเตือนชนท้ายและออกนอกเลนยังทำงานครบ</p>
+
+    <label class="check">
+      <input id="osmEnabled" type="checkbox">
+      ใช้ข้อมูลถนน (ความเร็วจำกัดและโค้งข้างหน้า)
+    </label>
+
+    <label>เพดานข้อมูลต่อการใช้งานหนึ่งครั้ง <output id="osmBudgetVal"></output> MB
+      <input id="osmBudget" type="range" min="5" max="100" step="5"></label>
+
+    <p class="hint" id="osmUsage"></p>
+
     <div class="row">
-      <button id="calibReset">คืนค่าเริ่มต้น</button>
-      <button id="calibDone" class="go">เสร็จแล้ว</button>
+      <button id="osmClear">ล้างข้อมูลถนนที่เก็บไว้</button>
+      <button id="calibReset">คืนค่ากล้องเริ่มต้น</button>
     </div>
+    <button id="calibDone" class="go">เสร็จแล้ว</button>
   </div>
 </div>
 

@@ -125,9 +125,8 @@ async function loop() {
 
 function updateRoadData() {
   if (!geo.hasFix) { roadMatch = null; return; }
-  if (roads.needsRefresh(geo.lat, geo.lon)) {
-    roads.refresh(geo.lat, geo.lon).catch(() => { });
-  }
+  // ตัวมันเองรู้ว่าตารางไหนมีอยู่แล้ว จึงเรียกได้ทุกเฟรมโดยไม่กินเน็ตเพิ่ม
+  roads.update(geo.lat, geo.lon, geo.heading, geo.speedKmh).catch(() => { });
   roadMatch = roads.match(geo.lat, geo.lon, geo.heading, geo.speedKmh);
 }
 
@@ -288,6 +287,7 @@ document.getElementById('soundBtn').addEventListener('click', () => {
 document.getElementById('calibBtn').addEventListener('click', () => {
   calibMode = true;
   ui.openCalib();
+  syncOsmUi();
   render();
 });
 
@@ -306,6 +306,36 @@ document.getElementById('calibReset').addEventListener('click', () => {
 });
 
 ui.bindCalib(() => { laneFinder.reset(); render(); });
+
+/* ---------- การตั้งค่าเรื่องข้อมูลถนนและค่าเน็ต ---------- */
+
+const osmToggle = document.getElementById('osmEnabled');
+const osmBudget = document.getElementById('osmBudget');
+
+function syncOsmUi() {
+  osmToggle.checked = roads.settings.enabled;
+  osmBudget.value = roads.settings.budgetMB;
+  document.getElementById('osmBudgetVal').textContent = roads.settings.budgetMB;
+  document.getElementById('osmUsage').textContent =
+    `ใช้ไปแล้วรอบนี้ ${roads.dataUsedMB.toFixed(2)} MB`;
+}
+
+osmToggle.addEventListener('change', () => {
+  roads.setSettings({ enabled: osmToggle.checked });
+  syncOsmUi(); render();
+});
+
+osmBudget.addEventListener('input', () => {
+  roads.setSettings({ budgetMB: parseInt(osmBudget.value, 10) });
+  syncOsmUi();
+});
+
+document.getElementById('osmClear').addEventListener('click', async () => {
+  await roads.clearCache();
+  syncOsmUi(); render();
+});
+
+syncOsmUi();
 
 /* ---------- เหตุการณ์ของระบบ ---------- */
 

@@ -12,7 +12,7 @@ const SHELL = [
   './', './index.html', './style.css', './manifest.json',
   './js/main.js', './js/ui.js', './js/camera.js', './js/detector.js',
   './js/tracker.js', './js/lane.js', './js/vision.js', './js/alerts.js',
-  './js/geo.js', './js/osm.js', './js/health.js', './js/calibrate.js', './js/util.js',
+  './js/geo.js', './js/osm.js', './js/store.js', './js/health.js', './js/calibrate.js', './js/util.js',
   './icons/icon-192.png', './icons/icon-512.png',
 ];
 
