@@ -12,6 +12,12 @@
 </head>
 <body>
 
+<div id="bootError" class="bootError" hidden>
+  <h2>เปิดระบบไม่ได้</h2>
+  <p id="bootReason"></p>
+  <ul id="bootFixes"></ul>
+</div>
+
 <main class="hud">
 
   <header class="head">
@@ -109,6 +115,72 @@
     <button id="calibDone" class="go">เสร็จแล้ว</button>
   </div>
 </div>
+
+<script>
+/* ตัวตรวจการเปิดใช้งาน — เขียนเป็นสคริปต์ธรรมดาโดยตั้งใจ
+   เพราะถ้าโมดูลหลักโหลดไม่ขึ้น จอจะว่างเปล่าโดยไม่บอกอะไรเลย
+   ซึ่งเป็นอาการที่หาสาเหตุยากที่สุดสำหรับผู้ใช้ */
+(function () {
+  var shown = false;
+  function report(reason, fixes) {
+    if (shown) return;
+    shown = true;
+    var box = document.getElementById('bootError');
+    if (!box) return;
+    document.getElementById('bootReason').textContent = reason;
+    var ul = document.getElementById('bootFixes');
+    ul.innerHTML = '';
+    fixes.forEach(function (f) {
+      var li = document.createElement('li');
+      li.textContent = f;
+      ul.appendChild(li);
+    });
+    box.hidden = false;
+  }
+
+  if (location.protocol === 'file:') {
+    report('หน้านี้ถูกเปิดจากไฟล์ในเครื่องโดยตรง เบราว์เซอร์จึงบล็อกทั้งการโหลดโมดูลและการใช้กล้อง', [
+      'ต้องเปิดผ่านเว็บเซิร์ฟเวอร์เท่านั้น เปิดไฟล์ index.html ตรงๆ ใช้ไม่ได้',
+      'วิธีง่ายสุด: อัปโหลดขึ้น GitHub แล้วเปิด Settings → Pages จะได้ลิงก์ https มาใช้ฟรี',
+      'ทดสอบในเครื่อง: เปิด terminal ในโฟลเดอร์นี้ พิมพ์  python3 -m http.server 8080  แล้วเข้า http://localhost:8080'
+    ]);
+    return;
+  }
+
+  if (!window.isSecureContext) {
+    report('หน้านี้ไม่ได้เปิดผ่าน HTTPS เบราว์เซอร์จึงไม่อนุญาตให้ใช้กล้องและ GPS', [
+      'เปิดผ่านที่อยู่ที่ขึ้นต้นด้วย https:// หรือ http://localhost เท่านั้น'
+    ]);
+    return;
+  }
+
+  window.addEventListener('error', function (e) {
+    if (window.__navAssistBooted) return;
+    var msg = String(e.message || '');
+    if (msg.indexOf('Script error') === 0) return;
+    report('เกิดข้อผิดพลาดขณะโหลดโปรแกรม: ' + msg, [
+      'ลองรีเฟรชหน้านี้',
+      'ถ้ายังไม่หาย เปิด Developer Tools ดูข้อความในแท็บ Console'
+    ]);
+  });
+
+  setTimeout(function () {
+    if (window.__navAssistBooted) return;
+    if (!window.tf || !window.cocoSsd) {
+      report('โหลดไลบรารี AI ไม่สำเร็จ', [
+        'ครั้งแรกที่ใช้ต้องต่ออินเทอร์เน็ต เพื่อดาวน์โหลดโมเดลราว 7 MB',
+        'ถ้าเคยเปิดสำเร็จแล้ว ลองรีเฟรช ระบบจะใช้ของที่เก็บไว้ในเครื่อง',
+        'ถ้าอยู่ในเครือข่ายที่บล็อก cdn.jsdelivr.net ให้ลองเปลี่ยนเครือข่าย'
+      ]);
+      return;
+    }
+    report('โปรแกรมหลักไม่เริ่มทำงานภายในเวลาที่ควรจะเป็น', [
+      'เบราว์เซอร์อาจเก่าเกินไป ต้องใช้ Chrome, Edge หรือ Safari รุ่นใหม่',
+      'เปิด Developer Tools ดูข้อความในแท็บ Console'
+    ]);
+  }, 6000);
+})();
+</script>
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>

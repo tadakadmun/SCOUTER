@@ -36,6 +36,9 @@ export class Detector {
     if (!window.tf || !window.cocoSsd) {
       throw new Error('โหลดไลบรารี AI ไม่สำเร็จ ต่ออินเทอร์เน็ตครั้งแรกแล้วเปิดใหม่');
     }
+    // อ้างผ่าน window อย่างชัดเจน ไลบรารีทั้งสองถูกโหลดด้วย <script> ธรรมดา
+    // จึงอยู่บน window ไม่ได้อยู่ในขอบเขตของโมดูลนี้
+    const tf = window.tf, cocoSsd = window.cocoSsd;
     await tf.ready();
 
     // พยายามใช้ WebGL ก่อน ถ้าไม่ได้ค่อยตกไป WASM/CPU

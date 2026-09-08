@@ -24,8 +24,11 @@ const CDN = [
 self.addEventListener('install', e => {
   e.waitUntil((async () => {
     const c = await caches.open(CACHE);
-    await c.addAll(SHELL);
-    // CDN อาจล้มเหลวได้ ไม่ให้ทำให้การติดตั้งทั้งหมดพัง
+    // ไม่ใช้ addAll เพราะถ้าไฟล์เดียวหาย การติดตั้งจะล้มทั้งชุด
+    // แล้วแอปจะใช้ออฟไลน์ไม่ได้เลยโดยไม่มีอะไรบอก
+    const results = await Promise.allSettled(SHELL.map(u => c.add(u)));
+    const missing = SHELL.filter((_, i) => results[i].status === 'rejected');
+    if (missing.length) console.warn('แคชไฟล์เหล่านี้ไม่ได้:', missing);
     await Promise.allSettled(CDN.map(u => c.add(new Request(u, { mode: 'cors' }))));
   })());
   self.skipWaiting();
@@ -65,6 +68,13 @@ self.addEventListener('fetch', e => {
       const copy = res.clone();
       caches.open(CACHE).then(c => c.put(req, copy));
       return res;
-    }).catch(() => caches.match(req).then(hit => hit || caches.match('./index.html')))
+    }).catch(() => caches.match(req).then(hit => {
+      if (hit) return hit;
+      // ตกกลับไปที่หน้าแรกได้เฉพาะการเปิดหน้าเว็บเท่านั้น
+      // ถ้าส่ง HTML ไปแทนไฟล์ .js เบราว์เซอร์จะปฏิเสธเพราะชนิดไฟล์ไม่ตรง
+      // แล้วจะได้ข้อความผิดพลาดที่ชี้ไปผิดทางโดยสิ้นเชิง
+      if (req.mode === 'navigate') return caches.match('./index.html');
+      return new Response('ไม่มีไฟล์นี้ในแคชและออฟไลน์อยู่', { status: 504 });
+    }))
   );
 });

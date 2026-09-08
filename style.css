@@ -293,3 +293,18 @@ button.off { color: var(--dim); }
 
 .calibInner .check input { width: 22px; height: 22px; accent-color: var(--calm); margin: 0; }
 .calibInner .row { margin-bottom: 8px; }
+
+/* ---- กล่องแจ้งเมื่อเปิดระบบไม่ได้ ---- */
+
+.bootError {
+  margin: 0;
+  padding: 18px 16px;
+  background: #2a1113;
+  border-bottom: 1px solid #58292c;
+  color: #ffd7d8;
+}
+
+.bootError h2 { margin: 0 0 6px; font-size: 17px; }
+.bootError p { margin: 0 0 10px; font-size: 14px; }
+.bootError ul { margin: 0; padding-left: 20px; font-size: 13px; color: #e9b6b7; }
+.bootError li { margin-bottom: 6px; }

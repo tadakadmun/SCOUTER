@@ -359,6 +359,9 @@ ui.setStartLabel(false);
 ui.setSoundLabel(true, true);
 render();
 
+// บอกตัวตรวจการเปิดใช้งานใน index.html ว่าโมดูลหลักทำงานแล้ว
+window.__navAssistBooted = true;
+
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(() => { });
 }

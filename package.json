@@ -5,8 +5,14 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "test": "node test/free-only.test.mjs && node test/math-and-vision.test.mjs && node test/collision.test.mjs",
+    "test": "node test/free-only.test.mjs && node test/boot.test.mjs && node test/math-and-vision.test.mjs && node test/collision.test.mjs",
     "serve": "python3 -m http.server 8080"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "jsdom": "^30.0.1"
+  },
+  "devDependencies": {
+    "jsdom": "^26.0.0"
+  }
 }

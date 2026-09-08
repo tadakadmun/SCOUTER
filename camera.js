@@ -51,12 +51,39 @@ export class Camera {
     this.track.addEventListener('unmute', () => { this.lost = false; });
 
     this.video.srcObject = this.stream;
-    await new Promise((res, rej) => {
-      const t = setTimeout(() => rej(new Error('กล้องไม่ส่งภาพภายในเวลาที่กำหนด')), 8000);
-      this.video.onloadedmetadata = () => { clearTimeout(t); res(); };
-    });
+
+    // เดิมรอเหตุการณ์ loadedmetadata เพียงอย่างเดียว ซึ่งเป็นการแข่งกันเวลา:
+    // ถ้าวิดีโอมีข้อมูลพร้อมอยู่แล้วก่อนเราผูกตัวรับเหตุการณ์ (เกิดบ่อยบนเครื่องเร็ว
+    // และเวลาเปิดกล้องใหม่หลังสลับแอป) เหตุการณ์นั้นจะไม่เกิดขึ้นอีกเลย
+    // แล้วระบบจะค้างอยู่ที่ "กำลังเตรียม" จนหมดเวลา
+    // จึงต้องเช็คสถานะปัจจุบันก่อน แล้วค่อยรอ พร้อมมีการวนตรวจเป็นตาข่ายรองรับ
+    await this.#waitForFrames();
     await this.video.play();
     return this.settings();
+  }
+
+  #waitForFrames(timeoutMs = 8000) {
+    const ready = () => this.video.readyState >= 1 && this.video.videoWidth > 0;
+    if (ready()) return Promise.resolve();
+
+    return new Promise((res, rej) => {
+      let done = false;
+      const finish = ok => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        clearInterval(poll);
+        this.video.removeEventListener('loadedmetadata', onMeta);
+        this.video.removeEventListener('canplay', onMeta);
+        ok ? res() : rej(new Error('กล้องไม่ส่งภาพภายในเวลาที่กำหนด ลองปิดแอปอื่นที่ใช้กล้องอยู่'));
+      };
+      const onMeta = () => { if (ready()) finish(true); };
+      const timer = setTimeout(() => finish(false), timeoutMs);
+      const poll = setInterval(onMeta, 100);
+      this.video.addEventListener('loadedmetadata', onMeta);
+      this.video.addEventListener('canplay', onMeta);
+      onMeta();
+    });
   }
 
   #markLost(reason) {

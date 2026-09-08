@@ -30,6 +30,9 @@ const FORBIDDEN = [
 ];
 
 const SKIP_DIRS = new Set(['node_modules', '.git', 'icons']);
+// package-lock.json มีลิงก์ของ registry npm ซึ่งเป็นเรื่องของเครื่องมือพัฒนา
+// ไม่ใช่สิ่งที่ผู้ใช้ปลายทางต้องต่อไปหา จึงไม่นับ
+const SKIP_FILES = new Set(['package-lock.json']);
 const EXTS = ['.js', '.mjs', '.html', '.json', '.css'];
 
 function walk(dir, out = []) {
@@ -37,7 +40,7 @@ function walk(dir, out = []) {
     const p = join(dir, name);
     if (statSync(p).isDirectory()) {
       if (!SKIP_DIRS.has(name)) walk(p, out);
-    } else if (EXTS.some(e => name.endsWith(e))) {
+    } else if (EXTS.some(e => name.endsWith(e)) && !SKIP_FILES.has(name)) {
       out.push(p);
     }
   }
@@ -60,7 +63,8 @@ console.log('[1] ปลายทางภายนอก');
     const text = readFileSync(f, 'utf8');
     for (const m of text.matchAll(/https?:\/\/([a-z0-9.-]+)/gi)) {
       const host = m[1].toLowerCase();
-      if (host === 'localhost' || host.endsWith('.example.com')) continue;
+      // example.com เป็นที่อยู่สมมติตามมาตรฐาน RFC 2606 ใช้ในชุดทดสอบเท่านั้น
+      if (host === 'localhost' || host === 'example.com' || host.endsWith('.example.com')) continue;
       if (!found.has(host)) found.set(host, []);
       if (!found.get(host).includes(f)) found.get(host).push(f);
     }
