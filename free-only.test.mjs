@@ -8,7 +8,7 @@
  *   3. ยังปิดการใช้อินเทอร์เน็ตได้ทั้งหมดโดยระบบหลักยังทำงาน
  */
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -112,5 +112,22 @@ console.log('\n[4] ใบอนุญาตของสิ่งที่พึ�
   check('README ให้เครดิต OpenStreetMap ตาม ODbL', /ODbL/.test(readme) && /OpenStreetMap/.test(readme));
 }
 
+console.log('\n[5] ตัวตรวจการเปิดใช้งานต้องไม่ทิ้งข้อผิดพลาดแบบไม่มีรายละเอียด');
+{
+  const idx = readFileSync(join(ROOT, 'index.html'), 'utf8');
+  check('ไม่ทิ้ง "Script error." โดยไม่ทำอะไรต่อ (ต้องตั้ง sawScriptFailure ไว้เสมอ)',
+    /sawScriptFailure\s*=\s*true;/.test(idx));
+  check('มีการถามเซิร์ฟเวอร์จริงว่า js/main.js ตอบกลับสถานะและชนิดไฟล์อะไร',
+    /probeServer/.test(idx) && /contentType/.test(idx));
+  check('ตรวจจับกรณี Content-Type ผิด (ปัญหา SPA fallback) โดยเฉพาะ',
+    /contentType\.indexOf\('javascript'\)/.test(idx));
+}
+
+console.log('\n[6] ไฟล์ที่ GitHub Pages ต้องมีเพื่อไม่ให้ Jekyll แทรกแซง');
+{
+  check('มีไฟล์ .nojekyll อยู่ที่รากโปรเจกต์', existsSync(join(ROOT, '.nojekyll')));
+}
+
 console.log(`\nสรุป: ผ่าน ${pass} ข้อ, ไม่ผ่าน ${fail} ข้อ\n`);
 process.exit(fail ? 1 : 0);
+

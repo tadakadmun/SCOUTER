@@ -16,6 +16,8 @@
   <h2>เปิดระบบไม่ได้</h2>
   <p id="bootReason"></p>
   <ul id="bootFixes"></ul>
+  <pre id="bootDetail" hidden></pre>
+  <button id="bootReset" type="button">ล้างแคชแล้วโหลดใหม่</button>
 </div>
 
 <main class="hud">
@@ -117,32 +119,56 @@
 </div>
 
 <script>
-/* ตัวตรวจการเปิดใช้งาน — เขียนเป็นสคริปต์ธรรมดาโดยตั้งใจ
-   เพราะถ้าโมดูลหลักโหลดไม่ขึ้น จอจะว่างเปล่าโดยไม่บอกอะไรเลย
-   ซึ่งเป็นอาการที่หาสาเหตุยากที่สุดสำหรับผู้ใช้ */
+/* ตัวตรวจการเปิดใช้งาน — เขียนเป็นสคริปต์ธรรมดาโดยตั้งใจ ไม่ใช่ ES module
+   ถ้าโปรแกรมหลัก (js/main.js) โหลดไม่ขึ้น จอจะว่างเปล่าโดยไม่บอกอะไรเลย
+   ซึ่งเป็นอาการที่ผู้ใช้แก้เองไม่ได้ ตัวนี้จึงต้องทำงานได้อิสระจากโมดูลหลักเสมอ
+   และต้อง "ไปถามเซิร์ฟเวอร์จริง" แทนการเดา เพราะสาเหตุที่พบบ่อยที่สุดคือ
+   โฮสต์บางเจ้าตั้งค่าให้ทุกเส้นทางที่หาไม่เจอวกกลับไปที่ index.html (SPA fallback)
+   หรือส่ง .js กลับมาเป็นชนิดไฟล์ผิด ซึ่งเบราว์เซอร์จะปฏิเสธการรันโมดูลนั้นทันที
+   โดยรายงานผ่าน window แค่ข้อความกำกวมว่า "Script error." เท่านั้น */
 (function () {
-  var shown = false;
-  function report(reason, fixes) {
+  var shown = false, sawScriptFailure = false, lastError = null;
+  function el(id) { return document.getElementById(id); }
+
+  function report(reason, fixes, detail) {
     if (shown) return;
     shown = true;
-    var box = document.getElementById('bootError');
-    if (!box) return;
-    document.getElementById('bootReason').textContent = reason;
-    var ul = document.getElementById('bootFixes');
+    el('bootReason').textContent = reason;
+    var ul = el('bootFixes');
     ul.innerHTML = '';
-    fixes.forEach(function (f) {
+    (fixes || []).forEach(function (f) {
       var li = document.createElement('li');
       li.textContent = f;
       ul.appendChild(li);
     });
-    box.hidden = false;
+    if (detail) {
+      el('bootDetail').textContent = detail;
+      el('bootDetail').hidden = false;
+    }
+    el('bootError').hidden = false;
   }
+
+  /* ล้าง Service Worker และแคชทั้งหมดแล้วโหลดใหม่ — ปุ่มกู้สถานการณ์กรณีรุ่นเก่าค้างอยู่ */
+  el('bootReset').addEventListener('click', function () {
+    var jobs = [];
+    if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+      jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) {
+        return Promise.all(rs.map(function (r) { return r.unregister(); }));
+      }));
+    }
+    if (window.caches && caches.keys) {
+      jobs.push(caches.keys().then(function (ks) {
+        return Promise.all(ks.map(function (k) { return caches.delete(k); }));
+      }));
+    }
+    Promise.all(jobs).catch(function () { }).then(function () { location.reload(); });
+  });
 
   if (location.protocol === 'file:') {
     report('หน้านี้ถูกเปิดจากไฟล์ในเครื่องโดยตรง เบราว์เซอร์จึงบล็อกทั้งการโหลดโมดูลและการใช้กล้อง', [
-      'ต้องเปิดผ่านเว็บเซิร์ฟเวอร์เท่านั้น เปิดไฟล์ index.html ตรงๆ ใช้ไม่ได้',
-      'วิธีง่ายสุด: อัปโหลดขึ้น GitHub แล้วเปิด Settings → Pages จะได้ลิงก์ https มาใช้ฟรี',
-      'ทดสอบในเครื่อง: เปิด terminal ในโฟลเดอร์นี้ พิมพ์  python3 -m http.server 8080  แล้วเข้า http://localhost:8080'
+      'เปิดไฟล์ index.html ตรงๆ ใช้ไม่ได้ ต้องเปิดผ่านเว็บเซิร์ฟเวอร์เท่านั้น',
+      'วิธีฟรีที่ง่ายสุด: อัปโหลดขึ้น GitHub แล้วเปิด Settings \u2192 Pages จะได้ลิงก์ https',
+      'ทดสอบในเครื่อง: พิมพ์  python3 -m http.server 8080  ในโฟลเดอร์นี้ แล้วเข้า http://localhost:8080'
     ]);
     return;
   }
@@ -154,18 +180,34 @@
     return;
   }
 
+  // จับข้อผิดพลาดของสคริปต์และไฟล์ที่โหลดไม่สำเร็จ (capture phase เพราะ error ของ <script> ไม่ bubble)
+  // สำคัญ: ข้อผิดพลาดของ module script มักมาในรูป "Script error." ที่ไม่มีรายละเอียดใดๆ เลย
+  // (เบราว์เซอร์ซ่อนรายละเอียดไว้ด้วยเหตุผลด้านความปลอดภัย) รุ่นก่อนหน้าทิ้งข้อความนี้ไปเฉยๆ
+  // ทำให้ตกไปที่ข้อความกำกวมที่สุด จึงต้องนับว่านี่คือสัญญาณว่าบางอย่างพังจริง แล้วสืบต่อด้วย fetch()
   window.addEventListener('error', function (e) {
     if (window.__navAssistBooted) return;
-    var msg = String(e.message || '');
-    if (msg.indexOf('Script error') === 0) return;
-    report('เกิดข้อผิดพลาดขณะโหลดโปรแกรม: ' + msg, [
-      'ลองรีเฟรชหน้านี้',
-      'ถ้ายังไม่หาย เปิด Developer Tools ดูข้อความในแท็บ Console'
-    ]);
-  });
+    sawScriptFailure = true;
+    if (e.target && e.target.tagName === 'SCRIPT') {
+      lastError = 'โหลดไฟล์ไม่สำเร็จ: ' + (e.target.src || '(ไม่ทราบ)');
+    } else if (e.message && e.message.indexOf('Script error') !== 0) {
+      lastError = e.message + (e.filename ? '\n' + e.filename + ':' + e.lineno : '');
+    }
+  }, true);
+
+  /* ไปถามเซิร์ฟเวอร์ตรงๆ ว่าไฟล์โปรแกรมหลักตอบกลับมาแบบไหน
+     คำตอบนี้ชี้สาเหตุได้แม่นกว่าการเดาจาก error event มาก */
+  function probeServer(then) {
+    fetch('./js/main.js', { cache: 'no-store' }).then(function (res) {
+      var ct = (res.headers.get('content-type') || '').toLowerCase();
+      then({ ok: res.ok, status: res.status, contentType: ct || '(เซิร์ฟเวอร์ไม่ระบุ)' });
+    }).catch(function (err) {
+      then({ ok: false, status: 0, contentType: '', networkError: err.message });
+    });
+  }
 
   setTimeout(function () {
     if (window.__navAssistBooted) return;
+
     if (!window.tf || !window.cocoSsd) {
       report('โหลดไลบรารี AI ไม่สำเร็จ', [
         'ครั้งแรกที่ใช้ต้องต่ออินเทอร์เน็ต เพื่อดาวน์โหลดโมเดลราว 7 MB',
@@ -174,10 +216,59 @@
       ]);
       return;
     }
-    report('โปรแกรมหลักไม่เริ่มทำงานภายในเวลาที่ควรจะเป็น', [
-      'เบราว์เซอร์อาจเก่าเกินไป ต้องใช้ Chrome, Edge หรือ Safari รุ่นใหม่',
-      'เปิด Developer Tools ดูข้อความในแท็บ Console'
-    ]);
+
+    probeServer(function (r) {
+      if (window.__navAssistBooted) return;
+
+      if (r.networkError) {
+        report('ติดต่อเซิร์ฟเวอร์เพื่อขอไฟล์โปรแกรมไม่ได้', [
+          'ตรวจการเชื่อมต่ออินเทอร์เน็ต',
+          'ลองกดปุ่มล้างแคชด้านล่าง'
+        ], 'fetch ./js/main.js ล้มเหลว: ' + r.networkError);
+        return;
+      }
+
+      if (r.status === 404) {
+        report('หาไฟล์ js/main.js ไม่เจอบนเซิร์ฟเวอร์ที่ใช้อยู่', [
+          'ตรวจว่าอัปโหลดโฟลเดอร์ js/ ทั้งโฟลเดอร์ขึ้นไปด้วย ไม่ใช่แค่ index.html',
+          'โฮสต์บางเจ้าลบโฟลเดอร์ย่อยหรือเปลี่ยนตัวพิมพ์เล็ก-ใหญ่ของชื่อไฟล์ ให้ตรวจชื่อไฟล์ให้ตรงเป๊ะ',
+          'ถ้าไม่แน่ใจว่าโฮสต์ไหนใช้ได้ ลองอัปขึ้น GitHub Pages ซึ่งทดสอบมาแล้วว่าใช้ได้'
+        ], 'HTTP ' + r.status + ' เมื่อขอ ./js/main.js');
+        return;
+      }
+
+      if (!r.ok) {
+        report('เซิร์ฟเวอร์ตอบกลับผิดพลาดเมื่อขอไฟล์โปรแกรม', [
+          'ลองกดปุ่มล้างแคชด้านล่าง',
+          'ถ้ายังไม่หาย อาจเป็นปัญหาฝั่งเซิร์ฟเวอร์ที่ใช้โฮสต์อยู่ ลองเปลี่ยนไปใช้ GitHub Pages'
+        ], 'HTTP ' + r.status + ' เมื่อขอ ./js/main.js');
+        return;
+      }
+
+      if (r.contentType.indexOf('javascript') === -1) {
+        report('เซิร์ฟเวอร์ส่งไฟล์ js/main.js กลับมาเป็นชนิดไฟล์ที่ผิด เบราว์เซอร์จึงปฏิเสธไม่ยอมรัน', [
+          'โฮสต์ที่ใช้อยู่อาจตั้งค่าให้ทุกเส้นทางที่หาไม่เจอวกกลับไปที่ index.html (SPA fallback) ซึ่งทำให้ไฟล์ .js กลายเป็น HTML',
+          'ต้องปิดการตั้งค่านั้น หรือเปลี่ยนไปใช้โฮสต์ไฟล์สถิตทั่วไปแทน เช่น GitHub Pages ซึ่งทดสอบมาแล้วว่าใช้ได้',
+          'ทดสอบว่าเป็นปัญหาโฮสต์จริงไหม: พิมพ์ python3 -m http.server 8080 ในเครื่อง แล้วเข้า http://localhost:8080 — ถ้าใช้ได้ปกติ แปลว่าโค้ดไม่มีปัญหา ต้องแก้ที่โฮสต์'
+        ], 'HTTP ' + r.status + ', Content-Type: ' + r.contentType);
+        return;
+      }
+
+      // ไฟล์โหลดได้ถูกต้องทุกอย่าง แต่ยังไม่ทำงาน — ตอนนี้น่าจะเป็นข้อผิดพลาดในตัวโค้ดเองแล้ว
+      var detail = lastError ? 'ข้อผิดพลาดที่พบ:\n' + lastError : '';
+      if (sawScriptFailure) {
+        report('โปรแกรมโหลดไฟล์ได้ครบแต่ทำงานไม่สำเร็จ', [
+          'ลองกดปุ่มล้างแคชด้านล่าง',
+          'เปิด Developer Tools ดูข้อความในแท็บ Console แล้วส่งข้อความนั้นไปให้ผู้พัฒนา'
+        ], detail);
+      } else {
+        report('โปรแกรมหลักไม่เริ่มทำงานภายในเวลาที่ควรจะเป็น ทั้งที่โหลดไฟล์ได้ปกติ', [
+          'ลองกดปุ่มล้างแคชด้านล่าง — สาเหตุที่พบบ่อยคือรุ่นเก่าค้างอยู่ในเครื่อง',
+          'เบราว์เซอร์อาจเก่าเกินไป ต้องรองรับ ES module (Chrome, Edge, Safari รุ่นใหม่)',
+          'เปิด Developer Tools ดูข้อความในแท็บ Console'
+        ]);
+      }
+    });
   }, 6000);
 })();
 </script>

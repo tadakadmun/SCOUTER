@@ -1,10 +1,9 @@
 /* boot.test.mjs — โหลดหน้าเว็บจริงในสภาพแวดล้อมจำลอง แล้วกดปุ่มเหมือนผู้ใช้
  *
- * ชุดทดสอบก่อนหน้านี้พิสูจน์ได้แค่ว่าคณิตศาสตร์ถูก ซึ่งไม่ช่วยอะไรเลย
- * ถ้าเปิดหน้าเว็บแล้วค้างตั้งแต่ตอนกดปุ่มเริ่ม
- * ไฟล์นี้จับอาการ "เปิดแล้วไม่ทำงาน" ซึ่งเป็นอาการที่หาสาเหตุยากที่สุด
- *
- * ไม่ได้แทนการทดสอบบนมือถือจริง แต่กันไม่ให้ของที่พังชัดๆ หลุดออกไป
+ * ชุดทดสอบคณิตศาสตร์พิสูจน์ได้แค่ว่าสูตรถูก ไม่ได้พิสูจน์ว่าเปิดหน้าเว็บแล้วทำงานหรือไม่
+ * ไฟล์นี้จับอาการ "เปิดแล้วไม่ทำงาน" ซึ่งเป็นอาการที่หาสาเหตุยากที่สุดสำหรับผู้ใช้
+ * โหลด js/main.js ตรงๆ ในรูปแบบ ES module เดียวกับที่ index.html ใช้จริง
+ * ไม่ผ่านการรวมไฟล์หรือแปลงรูปแบบใดๆ ทั้งสิ้น
  */
 
 import { JSDOM, VirtualConsole } from 'jsdom';
@@ -29,17 +28,14 @@ function fakeCtx() {
 }
 
 let detectCount = 0;
-const tfStub = {
-  ready: async () => { },
-  setBackend: async () => { },
-};
+const tfStub = { ready: async () => { }, setBackend: async () => { } };
 const cocoStub = {
   load: async opts => {
     if (opts?.modelUrl) throw new Error('ยังไม่มีในเครื่อง');
     return {
       model: { save: async () => { } },
       detect: async () => {
-        // รถคันหนึ่งที่โตขึ้นเรื่อยๆ = กำลังเข้าใกล้
+        // รถคันหนึ่งที่โตขึ้นเรื่อยๆ = กำลังเข้าใกล้ ใช้พิสูจน์ว่าลูปตรวจจับเดินจริง
         detectCount++;
         const w = 60 + detectCount * 6;
         return [{ class: 'car', score: 0.85, bbox: [320 - w / 2, 300 - w * 0.8, w, w * 0.8] }];
@@ -113,7 +109,8 @@ const vc = new VirtualConsole();
 vc.on('jsdomError', e => note(`jsdomError: ${e.message}`));
 
 const html = readFileSync(join(ROOT, 'index.html'), 'utf8')
-  // jsdom โหลดสคริปต์จาก CDN ไม่ได้ จึงใช้ของปลอมที่ติดตั้งไว้แล้วแทน
+  // jsdom โหลดสคริปต์จาก CDN จริงไม่ได้ (ไม่มีเน็ตในการทดสอบ) จึงตัดออก
+  // แล้วใช้ window.tf / window.cocoSsd ปลอมที่ติดตั้งไว้ก่อนหน้าแทน
   .replace(/<script src="https:\/\/cdn\.jsdelivr[^>]*><\/script>/g, '');
 
 const dom = new JSDOM(html, {
@@ -138,7 +135,7 @@ for (const k of ['window', 'document', 'navigator', 'localStorage', 'indexedDB',
 const click = id => $(id).dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
-console.log('\n[1] โหลดโมดูลหลัก');
+console.log('\n[1] โหลดโมดูลหลัก (js/main.js ตรงๆ แบบเดียวกับที่ index.html ใช้จริง)');
 try {
   await import(pathToFileURL(join(ROOT, 'js/main.js')).href);
   console.log('  ok   นำเข้า main.js สำเร็จ');

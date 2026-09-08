@@ -308,3 +308,23 @@ button.off { color: var(--dim); }
 .bootError p { margin: 0 0 10px; font-size: 14px; }
 .bootError ul { margin: 0; padding-left: 20px; font-size: 13px; color: #e9b6b7; }
 .bootError li { margin-bottom: 6px; }
+
+.bootError pre {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  background: #1a0c0d;
+  border: 1px solid #58292c;
+  border-radius: 6px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: #e9b6b7;
+}
+
+.bootError button {
+  margin-top: 14px;
+  background: #3a171a;
+  border-color: #6b3236;
+  color: #ffd7d8;
+}
