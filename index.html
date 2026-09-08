@@ -2,119 +2,100 @@
 <html lang="th">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#050806">
-<title>SCOUTER V2 — FREE</title>
-<link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="style.css">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#0b0e11">
+<meta name="description" content="ระบบช่วยเตือนขณะขับรถ ทำงานในเครื่อง ไม่มีค่าใช้จ่าย">
+<title>ผู้ช่วยเตือนขณะขับ</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<link rel="stylesheet" href="./style.css">
 </head>
 <body>
-<main class="app">
 
-  <header class="topbar">
-    <div>
-      <div class="brand">SCOUTER <span>V2</span></div>
-      <div class="status"><i id="statusDot"></i> <span id="statusText">LOCAL AI • FREE</span></div>
-    </div>
-    <button id="flipBtn" class="iconBtn" title="สลับกล้อง">↻</button>
+<main class="hud">
+
+  <header class="head">
+    <h1>ผู้ช่วยเตือนขณะขับ</h1>
+    <p class="sys">
+      <span id="sysState" data-state="off">ปิดอยู่</span>
+      <span id="sysDetail"></span>
+    </p>
   </header>
 
-  <!-- MODE TABS: two completely separate screens, on purpose.
-       SCOUTER MODE needs tapping (lock/scan/list) — never use while actually driving.
-       NAV ASSIST MODE is a glance-only driving HUD — big text, almost nothing to tap. -->
-  <nav class="tabbar">
-    <button id="tabScouterBtn" class="tabBtn active">🎯 SCOUTER MODE</button>
-    <button id="tabNavBtn" class="tabBtn">🚗 NAV ASSIST MODE</button>
-  </nav>
-
-  <div class="globalControls">
-    <button id="startBtn" class="primary full">🔴 START SCOUTER</button>
-  </div>
-
-  <section class="viewer">
+  <section class="view">
     <video id="video" autoplay playsinline muted></video>
     <canvas id="overlay"></canvas>
-    <div class="scanline"></div>
-    <div id="reticle" class="reticle"><span></span></div>
-    <div class="hud-corner tl"></div><div class="hud-corner tr"></div>
-    <div class="hud-corner bl"></div><div class="hud-corner br"></div>
+  </section>
 
-    <div id="message" class="message">กด START SCOUTER เพื่อเริ่มระบบ</div>
+  <!-- แถบเดียวกลางจอ: คำเตือนที่สำคัญที่สุดขณะนั้นเรื่องเดียว -->
+  <section id="band" class="band" data-tone="idle" role="status" aria-live="assertive">
+    <strong id="bandText">ระบบยังไม่เริ่มทำงาน</strong>
+    <span id="bandSub">ติดตั้งโทรศัพท์ให้มั่นคงก่อนออกรถ</span>
+  </section>
 
-    <!-- SCOUTER MODE overlay -->
-    <div id="targetInfo" class="targetInfo hidden">
-      <div class="ti-head"><b id="targetType">TARGET</b><span id="lockState">SEARCH</span></div>
-      <div class="ti-grid">
-        <div><label>POWER</label><strong id="power">0</strong></div>
-        <div><label>DIST</label><strong id="distance">--</strong></div>
-        <div><label>CONF</label><strong id="conf">0%</strong></div>
-        <div><label>DIR</label><strong id="direction">--</strong></div>
-      </div>
+  <section class="gauges">
+    <div class="gauge">
+      <b id="speed">––</b>
+      <span id="speedUnit">รอสัญญาณ</span>
     </div>
-
-    <!-- NAV ASSIST MODE overlay -->
-    <div id="roadGuide" class="roadGuide hidden">
-      <div id="guideArrow" class="guideArrow">↑</div>
-      <div id="guideState" class="guideState">SEARCHING</div>
-      <div id="guideText" class="guideText">กำลังหาแนวถนน</div>
+    <div class="gauge limit">
+      <b id="limit" class="none">–</b>
+      <span>จำกัด</span>
+    </div>
+    <div class="gauge lane">
+      <div id="laneMark" class="laneMark" data-state="none"><i></i></div>
+      <span id="laneNote">ยังไม่เห็นเส้นเลนชัดพอ</span>
     </div>
   </section>
 
-  <!-- ================= SCOUTER MODE PANEL ================= -->
-  <section id="scouterPanel" class="panel">
-    <div class="readouts">
-      <div><label>TARGETS</label><strong id="targets">0</strong></div>
-      <div><label>POWER</label><strong id="powerMain">---</strong></div>
-      <div><label>DIST</label><strong id="distMain">---</strong></div>
+  <p id="lockNote" class="lockNote" hidden>ปุ่มถูกปิดขณะรถเคลื่อนที่ จอดก่อนจึงจะตั้งค่าได้</p>
+
+  <section id="controls" class="controls">
+    <button id="startBtn" class="go">เริ่มระบบช่วยเตือน</button>
+    <div class="row">
+      <button id="soundBtn">เสียงเตือน เปิด</button>
+      <button id="calibBtn">ตั้งค่ากล้อง</button>
     </div>
-
-    <div class="buttons">
-      <button id="scanBtn" disabled>⚡ SCAN</button>
-      <button id="lockBtn" disabled>🎯 LOCK TARGET</button>
-      <button id="voiceBtn" class="on" disabled>🔊 VOICE</button>
-    </div>
-
-    <div id="targetList" class="targetList"></div>
-
-    <p class="note">ใช้ TensorFlow.js + COCO-SSD ประมวลผลในเบราว์เซอร์ทั้งหมด ไม่มี API แบบคิดเงิน • ค่า POWER/ระยะ เป็นค่าประเมินเชิงภาพเพื่อการทดลองและความบันเทิงเท่านั้น ไม่ใช่การวัดพลังหรือระยะจริง<br><strong>โหมดนี้ต้องแตะหน้าจอ (ล็อก/สแกน/เลือกเป้าหมาย) — ห้ามใช้ขณะขับรถ</strong></p>
   </section>
 
-  <!-- ================= NAV ASSIST MODE PANEL ================= -->
-  <section id="navPanel" class="panel hidden">
-    <div class="safetyBanner">
-      ⚠️ ห้ามแตะหรือจ้องหน้าจอขณะขับ — ติดตั้งโทรศัพท์ให้มั่นคงก่อนออกรถ และมองถนนด้วยตาตนเองเสมอ<br>
-      ระบบนี้เป็นตัวช่วยประเมินทัศนวิสัย/แนวทางแบบคร่าวๆ เท่านั้น <strong>ไม่ใช่ระบบขับรถอัตโนมัติ</strong>
-    </div>
-
-    <div class="navReadouts">
-      <div class="navStat"><label>VISION</label><strong id="visionScoreBig">0%</strong></div>
-      <div class="navStat"><label>ROAD</label><strong id="roadScoreBig">0%</strong></div>
-      <div class="navStat" id="riskStatBig"><label>SAFETY</label><strong id="riskTextBig">READY</strong></div>
-    </div>
-
-    <div class="meterRow big"><label>VISION</label><div class="meter"><span id="visionBar"></span></div><b id="visionScore">0%</b></div>
-    <div class="meterRow big"><label>ROAD</label><div class="meter"><span id="roadBar"></span></div><b id="roadScore">0%</b></div>
-
-    <div id="navBar" class="nav-bar big"><span>🧭 NAV ASSIST</span><b id="navText">รอเปิดระบบ</b></div>
-    <div id="rainWarning" class="rainWarning big">กด RAIN MODE เพื่อเริ่มประเมินทัศนวิสัย</div>
-
-    <div class="buttons secondary">
-      <button id="rainBtn" disabled>🌧️ RAIN MODE</button>
-      <button id="gpsBtn" disabled>🧭 GPS/HEADING</button>
-      <button id="voiceBtnNav" class="on" disabled>🔊 VOICE</button>
-    </div>
-
-    <div id="riskBar" class="risk-bar big">
-      <span>SAFETY</span><strong id="riskText">READY</strong>
-      <span id="gpsText">GPS: --</span><span id="headingText">HEADING: --</span>
-    </div>
-
-    <p class="note">ROAD/VISION เป็นค่าประเมินเชิงภาพแบบสัมพัทธ์ ไม่ใช่การรับรองความปลอดภัยของถนน ฝนหนัก กลางคืน หรือน้ำเกาะเลนส์อาจทำให้ค่าคลาดเคลื่อนได้ ผู้ขับต้องควบคุมรถและตัดสินใจเองเสมอ</p>
+  <section class="fineprint">
+    <p><strong>ระบบนี้ไม่ได้ขับรถแทนคุณ</strong> เป็นเพียงตัวช่วยเตือนที่อาจพลาดหรือเตือนผิดได้ ผู้ขับต้องมองถนนและควบคุมรถเองตลอดเวลา</p>
+    <p>ประมวลผลภาพทั้งหมดในเครื่อง ไม่มีการส่งภาพออกไปที่ใด ข้อมูลถนนดึงจาก OpenStreetMap เมื่อมีอินเทอร์เน็ต</p>
+    <p>ติดตั้งโทรศัพท์บนแท่นยึดที่มั่นคงและไม่บังการมองเห็น การถือโทรศัพท์ขณะขับผิดกฎหมาย</p>
   </section>
 
 </main>
+
+<!-- หน้าปรับตั้งกล้อง เปิดได้เฉพาะตอนจอด -->
+<div id="calibPanel" class="calib" hidden>
+  <div class="calibInner">
+    <h2>ตั้งค่ากล้อง</h2>
+    <p>จอดรถในเลนตรง แล้วเลื่อนให้เส้นฟ้าทับขอบเลนซ้ายขวา เส้นประทับเส้นขอบฟ้า และเส้นเหลืองตรงกับกึ่งกลางฝากระโปรง ยิ่งตรงยิ่งวัดการเบี่ยงออกนอกเลนได้แม่น</p>
+
+    <label>เส้นขอบฟ้า <output id="calv_horizonY"></output>
+      <input id="cal_horizonY" type="range" min="0.30" max="0.70" step="0.005"></label>
+    <label>ขอบเลนซ้าย (ใกล้) <output id="calv_bottomLeft"></output>
+      <input id="cal_bottomLeft" type="range" min="0.00" max="0.45" step="0.005"></label>
+    <label>ขอบเลนขวา (ใกล้) <output id="calv_bottomRight"></output>
+      <input id="cal_bottomRight" type="range" min="0.55" max="1.00" step="0.005"></label>
+    <label>ขอบเลนซ้าย (ไกล) <output id="calv_topLeft"></output>
+      <input id="cal_topLeft" type="range" min="0.25" max="0.49" step="0.005"></label>
+    <label>ขอบเลนขวา (ไกล) <output id="calv_topRight"></output>
+      <input id="cal_topRight" type="range" min="0.51" max="0.75" step="0.005"></label>
+    <label>กึ่งกลางรถ <output id="calv_egoX"></output>
+      <input id="cal_egoX" type="range" min="0.20" max="0.80" step="0.005"></label>
+    <label>ความกว้างเลน (เมตร) <output id="calv_laneWidthM"></output>
+      <input id="cal_laneWidthM" type="range" min="2.8" max="4.0" step="0.05"></label>
+
+    <div class="row">
+      <button id="calibReset">คืนค่าเริ่มต้น</button>
+      <button id="calibDone" class="go">เสร็จแล้ว</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
-<script src="app.js"></script>
+<script type="module" src="./js/main.js"></script>
 </body>
 </html>

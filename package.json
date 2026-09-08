@@ -1,0 +1,12 @@
+{
+  "name": "nav-assist",
+  "version": "1.0.0",
+  "description": "ระบบช่วยเตือนขณะขับ ทำงานในเบราว์เซอร์ ไม่มีค่าใช้จ่าย",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node test/math-and-vision.test.mjs && node test/collision.test.mjs",
+    "serve": "python3 -m http.server 8080"
+  },
+  "license": "MIT"
+}
