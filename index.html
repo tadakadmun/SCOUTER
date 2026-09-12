@@ -208,15 +208,6 @@
   setTimeout(function () {
     if (window.__navAssistBooted) return;
 
-    if (!window.tf || !window.cocoSsd) {
-      report('โหลดไลบรารี AI ไม่สำเร็จ', [
-        'ครั้งแรกที่ใช้ต้องต่ออินเทอร์เน็ต เพื่อดาวน์โหลดโมเดลราว 7 MB',
-        'ถ้าเคยเปิดสำเร็จแล้ว ลองรีเฟรช ระบบจะใช้ของที่เก็บไว้ในเครื่อง',
-        'ถ้าอยู่ในเครือข่ายที่บล็อก cdn.jsdelivr.net ให้ลองเปลี่ยนเครือข่าย'
-      ]);
-      return;
-    }
-
     probeServer(function (r) {
       if (window.__navAssistBooted) return;
 
@@ -273,8 +264,9 @@
 })();
 </script>
 
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+<!-- ไลบรารีตรวจจับ (MediaPipe Tasks Vision) ถูกโหลดแบบ dynamic import ใน js/detector.js
+     ตอนผู้ใช้กดเริ่มระบบ จึงไม่ต้องมี <script> ของไลบรารีตรงนี้
+     ข้อดีคือเปิดหน้าเว็บครั้งแรกเบากว่ามาก และหน้าจอขึ้นได้ทันทีแม้ยังไม่มีเน็ต -->
 <script type="module" src="./js/main.js"></script>
 </body>
 </html>

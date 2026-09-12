@@ -1,12 +1,14 @@
 /* sw.js — ทำให้แอปเปิดได้แม้ไม่มีสัญญาณ
  *
- * รุ่นก่อนหน้าแคชแค่ไฟล์ของแอป ส่วนไลบรารี AI ปล่อยให้ HTTP cache จัดการ
- * ซึ่งถูกล้างเมื่อไหร่ก็ได้ ผลคือขับเข้าที่ไม่มีสัญญาณแล้วแอปเปิดไม่ขึ้น
- * ตอนที่ต้องการมันที่สุด ที่นี่จึงแคชไลบรารีจาก CDN ไว้ด้วย
- * ส่วนน้ำหนักโมเดลถูกเก็บแยกใน IndexedDB โดย detector.js
+ * ถ้าปล่อยให้ไลบรารีและโมเดลพึ่ง HTTP cache ของเบราว์เซอร์เฉยๆ มันจะถูกล้าง
+ * เมื่อไหร่ก็ได้ ผลคือขับเข้าที่ไม่มีสัญญาณแล้วแอปเปิดไม่ขึ้นตอนที่ต้องการมันที่สุด
+ * จึงเก็บทั้งไลบรารีตรวจจับและไฟล์โมเดลไว้ในแคชของ Service Worker
+ *
+ * ไลบรารีและโมเดลใช้วิธี "เอาจากแคชก่อน" เพราะตรึงเวอร์ชันไว้แล้วไม่มีวันเปลี่ยน
+ * ส่วนไฟล์ของแอปเองใช้ "เอาของใหม่ก่อน" เพื่อให้การแก้ไขถึงผู้ใช้ได้เร็ว
  */
 
-const CACHE = 'navassist-v2';
+const CACHE = 'navassist-v3';
 
 const SHELL = [
   './', './index.html', './style.css', './manifest.json',
@@ -17,10 +19,14 @@ const SHELL = [
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png',
 ];
 
-const CDN = [
-  'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js',
-  'https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js',
-];
+// ไลบรารีตรวจจับ (MediaPipe Tasks Vision) และไฟล์โมเดล
+// ตัวไลบรารีโหลดไฟล์ wasm หลายไฟล์ที่ชื่อเดาล่วงหน้าไม่ได้แน่นอน
+// จึงเก็บแบบพบตอนไหนเก็บตอนนั้น แทนการระบุรายชื่อไว้ตายตัว
+const LIB_PREFIX = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@';
+const MODEL_PREFIX = 'https://storage.googleapis.com/mediapipe-models/';
+
+const isLibOrModel = url =>
+  url.startsWith(LIB_PREFIX) || url.startsWith(MODEL_PREFIX);
 
 self.addEventListener('install', e => {
   e.waitUntil((async () => {
@@ -30,7 +36,8 @@ self.addEventListener('install', e => {
     const results = await Promise.allSettled(SHELL.map(u => c.add(u)));
     const missing = SHELL.filter((_, i) => results[i].status === 'rejected');
     if (missing.length) console.warn('แคชไฟล์เหล่านี้ไม่ได้:', missing);
-    await Promise.allSettled(CDN.map(u => c.add(new Request(u, { mode: 'cors' }))));
+    // ไม่ดึงไลบรารีกับโมเดลมาตอนติดตั้ง เพราะรวมกันหลายเมกะไบต์
+    // และผู้ใช้อาจยังไม่กดเริ่มระบบเลยด้วยซ้ำ ปล่อยให้เก็บตอนใช้งานจริงครั้งแรก
   })());
   self.skipWaiting();
 });
@@ -50,11 +57,11 @@ self.addEventListener('fetch', e => {
   if (url.hostname.includes('overpass')) return;
 
   const isShell = url.origin === self.location.origin;
-  const isCdn = CDN.some(u => req.url.startsWith(u.split('@')[0]));
+  const isCdn = isLibOrModel(req.url);
   if (!isShell && !isCdn) return;
 
   if (isCdn) {
-    // ไลบรารีตรึงเวอร์ชันไว้แล้ว จึงใช้ของในแคชก่อนเพื่อความเร็วและความแน่นอน
+    // ไลบรารีและโมเดลตรึงเวอร์ชันไว้แล้ว จึงใช้ของในแคชก่อนเพื่อความเร็วและความแน่นอน
     e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(res => {
       const copy = res.clone();
       caches.open(CACHE).then(c => c.put(req, copy));
